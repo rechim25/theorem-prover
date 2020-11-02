@@ -13,12 +13,12 @@
 #define AND '^'
 #define IMPLIES '>'
 #define NOT '-'
-#define OPEN_PAREN '('
-#define CLOSED_PAREN ')'
+#define LPAREN '('
+#define RPAREN ')'
 #define END '\n'
 
-int i;
-int j;
+/* Define globals */
+static int g_index;
 
 /*put all your functions here.  You will need
 1.
@@ -39,44 +39,61 @@ You may vary this program provided it reads 10 formulas in a file called "input.
 // BC ::= v | ^ | > .
 // fmla ::= prop | − fmla | (fmla BC fmla).
 
-struct Node
-{
-};
+/*
+  current |  next
+  ----------------------------
+  prop    |  BC, \n
+  ----------------------------
+  fmla    |  ), BC, \n
+  -----------------------------
+  BC      |  (, prop, -,  
+*/
 
-int isProp(char c)
-{
-  return c == P || c == Q || c == R;
-}
-
-int isBC(char c)
-{
-  return c == OR || c == AND || c == IMPLIES;
-}
-
-int isNegation(char c)
-{
-  return c == NOT;
-}
-
-int isFormula(char c)
-{
-  return c == P || c == Q || c == R || c == '-' || c == '(';
-}
-
-char *formula(char *str)
+int matchProposition(char *str)
 {
   char c = *str;
-  if (c == P || c == Q || c == R)
+  return match(c, P) || match(c, Q) || match(c, R);
+}
+
+int matchBinaryConnector(char *str)
+{
+  char c = *str;
+  return match(c, OR) || match(c, AND) || match(c, IMPLIES);
+}
+
+int matchFormula(char *str)
+{
+  if (matchProposition(str))
   {
+    return 1;
   }
-  else if (c == NOT)
+  else if (match(str, NOT))
   {
+    if (!matchFormula(str))
+      return 0;
+    return 1;
   }
-  else if (c == OPEN_PAREN)
+  else if (match(str, LPAREN))
   {
-    char *next_str = formula(str++);
-    isBC(next_str);
+    if (!matchFormula(str))
+      return 0;
+    if (!matchBinaryConnector(str))
+      return 0;
+    if (!matchFormula(str))
+      return 0;
+    return 1;
   }
+  return 0;
+}
+
+int match(char *str, char symbol)
+{
+  if (*str == symbol)
+  {
+    str++;
+    return 1;
+  }
+  return 0;
 }
 
 int parse(char *str)
@@ -85,13 +102,10 @@ int parse(char *str)
 }
 
 int main()
-
-{ /*input 10 strings from "input.txt" */
-
+{
   char *str = malloc(F_SIZE);
   FILE *fp, *fpout;
 
-  /* reads from input.txt, writes to output.txt*/
   if ((fp = fopen("input.txt", "r")) == NULL)
   {
     printf("Error opening file");
@@ -106,7 +120,7 @@ int main()
   int j;
   for (j = 0; j < INPUTS; j++)
   {
-    fscanf(fp, "%s", str); /*read formula*/
+    fscanf(fp, "%s", str);
     switch (parse(str))
     {
     case (0):
@@ -128,7 +142,7 @@ int main()
 
   fclose(fp);
   fclose(fpout);
-  free(name);
+  free(str);
 
   return (0);
 }
