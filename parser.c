@@ -49,16 +49,24 @@ You may vary this program provided it reads 10 formulas in a file called "input.
   BC      |  (, prop, -,  
 */
 
+int match(char *str, char symbol)
+{
+  if (*str == symbol)
+  {
+    str++;
+    return 1;
+  }
+  return 0;
+}
+
 int matchProposition(char *str)
 {
-  char c = *str;
-  return match(c, P) || match(c, Q) || match(c, R);
+  return match(str, P) || match(str, Q) || match(str, R);
 }
 
 int matchBinaryConnector(char *str)
 {
-  char c = *str;
-  return match(c, OR) || match(c, AND) || match(c, IMPLIES);
+  return match(str, OR) || match(str, AND) || match(str, IMPLIES);
 }
 
 int matchFormula(char *str)
@@ -86,19 +94,9 @@ int matchFormula(char *str)
   return 0;
 }
 
-int match(char *str, char symbol)
-{
-  if (*str == symbol)
-  {
-    str++;
-    return 1;
-  }
-  return 0;
-}
-
 int parse(char *str)
 {
-  return formula(str);
+  return matchFormula(str);
 }
 
 int main()
@@ -117,28 +115,31 @@ int main()
     exit(1);
   }
 
-  int j;
-  for (j = 0; j < INPUTS; j++)
-  {
-    fscanf(fp, "%s", str);
-    switch (parse(str))
-    {
-    case (0):
-      fprintf(fpout, "%s is not a formula.  \n", str);
-      break;
-    case (1):
-      fprintf(fpout, "%s is a proposition. \n ", str);
-      break;
-    case (2):
-      fprintf(fpout, "%s is a negation.  \n", str);
-      break;
-    case (3):
-      fprintf(fpout, "%s is a binary. The first part is %s and the second part is %s  \n", str, partone(str), parttwo(str));
-      break;
-    default:
-      fprintf(fpout, "What the f***!  ");
-    }
-  }
+  fscanf(fp, "%s", str);
+  printf("%i", parse(str));
+
+  // int j;
+  // for (j = 0; j < INPUTS; j++)
+  // {
+  //   fscanf(fp, "%s", str);
+  //   switch (parse(str))
+  //   {
+  //   case (0):
+  //     fprintf(fpout, "%s is not a formula.  \n", str);
+  //     break;
+  //   case (1):
+  //     fprintf(fpout, "%s is a proposition. \n ", str);
+  //     break;
+  //   case (2):
+  //     fprintf(fpout, "%s is a negation.  \n", str);
+  //     break;
+  //   case (3):
+  //     fprintf(fpout, "%s is a binary. The first part is %s and the second part is %s  \n", str, partone(str), parttwo(str));
+  //     break;
+  //   default:
+  //     fprintf(fpout, "What the f***!  ");
+  //   }
+  // }
 
   fclose(fp);
   fclose(fpout);
