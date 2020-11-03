@@ -51,9 +51,9 @@ You may vary this program provided it reads 10 formulas in a file called "input.
 
 int match(char *str, char symbol)
 {
-  if (*str == symbol)
+  if (str[g_index] == symbol)
   {
-    str++;
+    g_index++;
     return 1;
   }
   return 0;
@@ -89,6 +89,8 @@ int matchFormula(char *str)
       return 0;
     if (!matchFormula(str))
       return 0;
+    if (!match(str, RPAREN))
+      return 0;
     return 1;
   }
   return 0;
@@ -96,7 +98,16 @@ int matchFormula(char *str)
 
 int parse(char *str)
 {
-  return matchFormula(str);
+  g_index = 0;
+  if (match(str, END))
+  {
+    return 0;
+  }
+  if (!matchFormula(str))
+    return 0;
+  if (!match(str, END))
+    return 0;
+  return 1;
 }
 
 int main()
@@ -115,31 +126,36 @@ int main()
     exit(1);
   }
 
-  fscanf(fp, "%s", str);
-  printf("%i", parse(str));
-
-  // int j;
-  // for (j = 0; j < INPUTS; j++)
-  // {
-  //   fscanf(fp, "%s", str);
-  //   switch (parse(str))
-  //   {
-  //   case (0):
-  //     fprintf(fpout, "%s is not a formula.  \n", str);
-  //     break;
-  //   case (1):
-  //     fprintf(fpout, "%s is a proposition. \n ", str);
-  //     break;
-  //   case (2):
-  //     fprintf(fpout, "%s is a negation.  \n", str);
-  //     break;
-  //   case (3):
-  //     fprintf(fpout, "%s is a binary. The first part is %s and the second part is %s  \n", str, partone(str), parttwo(str));
-  //     break;
-  //   default:
-  //     fprintf(fpout, "What the f***!  ");
-  //   }
-  // }
+  int j;
+  for (j = 0; j < INPUTS; j++)
+  {
+    if (fscanf(fp, "%s", str))
+    {
+      switch (parse(str))
+      {
+      case (0):
+        fprintf(fpout, "%s is not a formula.  \n", str);
+        break;
+      case (1):
+        fprintf(fpout, "%s is a formula.  \n", str);
+        // case (1):
+        //   fprintf(fpout, "%s is a proposition. \n ", str);
+        //   break;
+        // case (2):
+        //   fprintf(fpout, "%s is a negation.  \n", str);
+        //   break;
+        // case (3):
+        //   fprintf(fpout, "%s is a binary. The first part is %s and the second part is %s  \n", str, partone(str), parttwo(str));
+        //   break;
+        // default:
+        //   fprintf(fpout, "What the f***!  ");
+      }
+    }
+    else
+    {
+      printf("input.txt: Empty input on line %i.", j + 1);
+    }
+  }
 
   fclose(fp);
   fclose(fpout);
