@@ -16,9 +16,20 @@
 #define LPAREN '('
 #define RPAREN ')'
 #define END '\n'
+#define NULLCHAR '\0'
 
 /* Define globals */
+
+enum formulaType
+{
+  incorrectSyntax,
+  isProposition,
+  isNegation,
+  isBinaryFormula,
+  unexpectedInput
+};
 static int g_index;
+static int g_main_connective_index;
 
 /*put all your functions here.  You will need
 1.
@@ -96,18 +107,88 @@ int matchFormula(char *str)
   return 0;
 }
 
+int checkIsProposition(char *str)
+{
+  char c = *str;
+  return c == P || c == Q || c == R;
+}
+
+int checkIsNegation(char *str)
+{
+  return *str == NOT;
+}
+
+char getMainConnectiveIndex(char *str)
+{
+  int num_unclosed_lparen = 0;
+  int main_connective_index = -1;
+  for (int i = 0; i < strlen(str); i++)
+  {
+    if (str[i] == LPAREN)
+    {
+      num_unclosed_lparen++;
+    }
+    else if (str[i] == RPAREN)
+    {
+      num_unclosed_lparen--;
+    }
+    else if (num_unclosed_lparen == 1 && (str[i] == OR || str[i] == AND || str[i] == IMPLIES))
+    {
+      main_connective_index = i;
+    }
+  }
+  return main_connective_index;
+}
+
+char *getLeftPartFormula(char *str)
+{
+  char *leftPart = (char *)malloc(sizeof(char) * F_SIZE);
+  if (leftPart == NULL)
+  {
+    exit(EXIT_FAILURE);
+  }
+  int j = 0;
+  for (int i = 1; i < g_main_connective_index; i++)
+  {
+    leftPart[j] = str[i];
+    j++;
+  }
+  return leftPart;
+}
+
+char *getRightPartFormula(char *str)
+{
+  char *rightPart = (char *)malloc(sizeof(char) * F_SIZE);
+  if (rightPart == NULL)
+  {
+    exit(EXIT_FAILURE);
+  }
+  int j = 0;
+  for (int i = g_main_connective_index + 1; i < strlen(str) - 1; i++)
+  {
+    rightPart[j] = str[i];
+    j++;
+  }
+  return rightPart;
+}
+
 int parse(char *str)
 {
   g_index = 0;
-  if (match(str, END))
-  {
-    return 0;
-  }
+  if (match(str, END) || match(str, NULLCHAR) || strlen(str) <= 0)
+    return incorrectSyntax;
   if (!matchFormula(str))
-    return 0;
-  if (!match(str, END))
-    return 0;
-  return 1;
+    return incorrectSyntax;
+  if (!strlen(str) == g_index)
+    return incorrectSyntax;
+  if (checkIsProposition(str))
+    return isProposition;
+  if (checkIsNegation(str))
+    return isNegation;
+  g_main_connective_index = getMainConnectiveIndex(str);
+  if (g_main_connective_index > 0)
+    return isBinaryFormula;
+  return unexpectedInput;
 }
 
 int main()
@@ -133,22 +214,21 @@ int main()
     {
       switch (parse(str))
       {
-      case (0):
+      case (incorrectSyntax):
         fprintf(fpout, "%s is not a formula.  \n", str);
         break;
       case (1):
-        fprintf(fpout, "%s is a formula.  \n", str);
-        // case (1):
-        //   fprintf(fpout, "%s is a proposition. \n ", str);
-        //   break;
-        // case (2):
-        //   fprintf(fpout, "%s is a negation.  \n", str);
-        //   break;
-        // case (3):
-        //   fprintf(fpout, "%s is a binary. The first part is %s and the second part is %s  \n", str, partone(str), parttwo(str));
-        //   break;
-        // default:
-        //   fprintf(fpout, "What the f***!  ");
+        fprintf(fpout, "%s is a proposition.  \n", str);
+        break;
+      case (2):
+        fprintf(fpout, "%s is a negation.  \n", str);
+        break;
+      case (3):
+        fprintf(fpout, "%s is a binary formula. The first part is %s and the second part is %s  \n",
+                str, getLeftPartFormula(str), getRightPartFormula(str));
+        break;
+      default:
+        fprintf(fpout, "What the f*** is %s !? \n", str);
       }
     }
     else
