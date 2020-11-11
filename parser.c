@@ -179,7 +179,7 @@ int parse(char *str)
     return incorrectSyntax;
   if (!matchFormula(str))
     return incorrectSyntax;
-  if (!strlen(str) == g_index)
+  if (strlen(str) != g_index)
     return incorrectSyntax;
   if (checkIsProposition(str))
     return isProposition;
