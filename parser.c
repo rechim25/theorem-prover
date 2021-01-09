@@ -193,7 +193,7 @@ int parse(char *str)
 
 int main()
 {
-  char *str = malloc(F_SIZE);
+  char *str = calloc(F_SIZE, sizeof(char));
   FILE *fp, *fpout;
 
   if ((fp = fopen("input.txt", "r")) == NULL)
@@ -224,11 +224,11 @@ int main()
         fprintf(fpout, "%s is a negation.  \n", str);
         break;
       case (3):
-        fprintf(fpout, "%s is a binary formula. The first part is %s and the second part is %s  \n",
+        fprintf(fpout, "%s is a binary. The first part is %s and the second part is %s  \n",
                 str, getLeftPartFormula(str), getRightPartFormula(str));
         break;
       default:
-        fprintf(fpout, "What the f*** is %s !? \n", str);
+        fprintf(fpout, "What the f***!  ");
       }
     }
     else
