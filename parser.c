@@ -2,7 +2,7 @@
 #include <string.h> /* for all the new-fangled string functions */
 #include <stdlib.h> /* malloc, free, rand */
 
-#define FORMULA_SIZE 50  /* max string length of formulas*/
+#define FORMULA_SIZE 70  /* max string length of formulas*/
 #define INPUT_SIZE 10    /* number of formulas expected in input.txt*/
 #define THEOREM_SIZE 100 /* maximum size of set of formulas, if needed*/
 #define TABLEAU_SIZE 500 /*maximum length of tableau queue, if needed*/
@@ -36,6 +36,7 @@ enum formulaType
 
 static int g_index;
 static int g_main_connective_index;
+static char *g_current_formula;
 
 /*
  * Parser Rules
@@ -120,6 +121,9 @@ char getMainConnectiveIndex(char *str)
   return main_connective_index;
 }
 
+/*
+ * Returns left part of the formula as string with allocated heap memory.
+ */
 char *getLeftPartFormula(char *str)
 {
   char *leftPart = calloc(FORMULA_SIZE, sizeof(char));
@@ -136,6 +140,9 @@ char *getLeftPartFormula(char *str)
   return leftPart;
 }
 
+/*
+ * Returns right part of the formula as string with allocated heap memory.
+ */
 char *getRightPartFormula(char *str)
 {
   char *rightPart = calloc(FORMULA_SIZE, sizeof(char));
@@ -152,9 +159,15 @@ char *getRightPartFormula(char *str)
   return rightPart;
 }
 
-int parse(char *str)
+void resetParsing()
 {
   g_index = 0;
+  g_main_connective_index = 0;
+}
+
+int parse(char *str)
+{
+  resetParsing();
   if (match(str, END) || match(str, NULLCHAR) || strlen(str) <= 0)
     return incorrectSyntax;
   if (!matchFormula(str))
@@ -175,7 +188,7 @@ int parse(char *str)
  * Tableau
 */
 
-/* A set will contain a list of words. 
+/* A set will contain a list of words, formulas.
  * 
  * Use NULL for emptyset.   
  * 
@@ -186,6 +199,35 @@ struct set
   char *item;       /*first word of non-empty set*/
   struct set *tail; /*remaining words in the set*/
 };
+
+/*
+ * Returns a deep copy of the given set with heap allocated memory.
+ */
+struct set *deepCopy(struct set *set)
+{
+  struct set *set_copy = calloc(1, sizeof(struct set));
+  if (set == NULL)
+  {
+    set_copy = NULL;
+    return set_copy;
+  }
+
+  struct set *set_copy_iterator = set_copy;
+  while (set != NULL)
+  {
+    set_copy_iterator->item = calloc(FORMULA_SIZE, sizeof(char));
+    strcpy(set_copy_iterator->item, set->item);
+    if (set->tail != NULL)
+    {
+      set_copy_iterator->tail = calloc(1, sizeof(struct set));
+    }
+    //set->tail;
+
+    set = set->tail;
+    set_copy_iterator = set_copy_iterator->tail;
+  }
+  return set_copy;
+}
 
 int containsFormula(char *formula, struct set *set)
 {
@@ -206,21 +248,57 @@ int containsFormula(char *formula, struct set *set)
   return 0;
 }
 
+/*
+ * Removes first formula from set and returns it.
+ * 
+ * Maintains set structure and invariant.
+ * 
+ * Returns NULL if set is empty.
+ */
+char *dequeueFormula(struct set **set)
+{
+  if (*set == NULL)
+  {
+    return NULL;
+  }
+
+  char *first = (*set)->item;
+
+  if ((*set)->tail == NULL)
+  {
+    *set = NULL;
+    return first;
+  }
+
+  (*set)->item = (*set)->tail->item;
+  (*set)->tail = (*set)->tail->tail;
+  return first;
+}
+
 /**
  * Adds formula to set if not present added.
+ * 
+ * Maintains set invariant.
  * 
  * Returns 0 if formula present in set.
  * 
  * Returns 1 if formula has been added succesfully.
  */
-int addFormula(char *formula, struct set *set)
+int enqueueFormula(char *formula, struct set **set)
 {
-  if (strcmp(set->item, formula) == 0)
+  if (*set == NULL)
+  {
+    *set = calloc(1, sizeof(struct set));
+    (*set)->item = formula;
+    return 1;
+  }
+
+  if (strcmp((*set)->item, formula) == 0)
   {
     return 0;
   }
 
-  struct set *last = set;
+  struct set *last = *set;
   while (last->tail != NULL)
   {
     if (strcmp(last->item, formula) == 0)
@@ -238,15 +316,6 @@ int addFormula(char *formula, struct set *set)
   last->tail = new_set;
 }
 
-int expand(struct set *set)
-{
-  // Case alpha:
-
-  // Case beta:
-
-  return 0;
-}
-
 /* 
  * Checks if set contains only propositions.
  * 
@@ -259,10 +328,16 @@ int expanded(struct set *set)
     return 1;
   }
 
-  while (set->tail != NULL)
+  while (set != NULL)
   {
     // strcmp returns non-zero if the 2 strings differ
-    if (set->item == NULL || strcmp(set->item, P) || strcmp(set->item, Q) || strcmp(set->item, R))
+    if (set->item == NULL ||
+        (strcmp(set->item, "p") != 0 &&
+         strcmp(set->item, "q") != 0 &&
+         strcmp(set->item, "r") != 0 &&
+         strcmp(set->item, NOT_P) != 0 &&
+         strcmp(set->item, NOT_Q) != 0 &&
+         strcmp(set->item, NOT_R) != 0))
     {
       return 0;
     }
@@ -283,19 +358,19 @@ int contradictory(struct set *set)
     return 0;
   }
 
-  int hasP, hasQ, hasR = 0;
-  while (set->tail != NULL)
+  int hasP = 0, hasQ = 0, hasR = 0;
+  while (set != NULL)
   {
     char *formula = set->item;
-    if (strcmp(formula, P) == 0)
+    if (strcmp(formula, "p") == 0)
     {
       hasP = 1;
     }
-    else if (strcmp(formula, Q) == 0)
+    else if (strcmp(formula, "q") == 0)
     {
       hasQ = 1;
     }
-    else if (strcmp(formula, R) == 0)
+    else if (strcmp(formula, "r") == 0)
     {
       hasR = 1;
     }
@@ -311,8 +386,122 @@ int contradictory(struct set *set)
     {
       return 1;
     }
+    set = set->tail;
   }
   return 0;
+}
+
+/*
+ * (A^B) is alphaAnd.
+ * 
+ * -(AvB) is alphaNegatedOr.
+ * 
+ * -(A>B) is alphaNegatedImplies.
+ * 
+ * --A is alphaDoubleNegation.
+ * 
+ * notAlpha corresponds to beta formulas.
+ * 
+ */
+enum alphaType
+{
+  notAlpha,
+  alphaAnd,
+  alphaNegatedOr,
+  alphaNegatedImplies,
+  alphaDoubleNegation
+};
+
+/*
+ * Returns the alphaType value resulted from parsing formula.
+ * 
+ * After its execution, if the formula contained a binary formula, 
+ * then g_main_connective_index will be correctly set.
+ */
+int alpha(char *formula)
+{
+  int parse_result = parse(formula);
+  if (parse_result == isNegation)
+  {
+    char *negated_part = formula + 1;
+    int second_parse_result = parse(negated_part);
+
+    if (second_parse_result == isNegation)
+    {
+      return alphaDoubleNegation;
+    }
+    else if (second_parse_result == isBinaryFormula)
+    {
+      if (negated_part[g_main_connective_index] == OR)
+      {
+        return alphaNegatedOr;
+      }
+      if (negated_part[g_main_connective_index] == IMPLIES)
+      {
+        return alphaNegatedImplies;
+      }
+    }
+  }
+  else if (parse_result == isBinaryFormula)
+  {
+    if (formula[g_main_connective_index] == AND)
+    {
+      return alphaAnd;
+    }
+  }
+  return notAlpha;
+}
+
+/*
+ * (AvB) is betaOr.
+ * 
+ * (A>B) is betaImplies.
+ * 
+ * -(A^B) is betaNegatedAnd.
+ * 
+ * notBeta corresponds to alpha formulas.
+ */
+enum betaType
+{
+  notBeta,
+  betaOr,
+  betaImplies,
+  betaNegatedAnd
+};
+
+/*
+ * Returns the betaType value resulted from parsing formula.
+ * 
+ * After its execution, if the formula contained a binary formula, 
+ * then g_main_connective_index will be correctly set.
+ */
+int beta(char *formula)
+{
+  int parse_result = parse(formula);
+  if (parse_result == isBinaryFormula)
+  {
+    if (formula[g_main_connective_index] == OR)
+    {
+      return betaOr;
+    }
+
+    if (formula[g_main_connective_index] == IMPLIES)
+    {
+      return betaImplies;
+    }
+  }
+  else if (parse_result == isNegation)
+  {
+    char *negated_part = formula + 1;
+    if (parse(negated_part) == isBinaryFormula)
+    {
+      if (negated_part[g_main_connective_index] == AND)
+      {
+        return betaNegatedAnd;
+      }
+    }
+  }
+  return notBeta;
 }
 
 /* A tableau will contain a list of pointers to sets (of words).  
@@ -353,7 +542,7 @@ int emptied(struct tableau *t)
 }
 
 /* 
- * Dequeues first set in tableau and returns it.
+ * Removes first set from tableau and returns it.
  * 
  * Mantains tableau structure. 
  * 
@@ -379,9 +568,21 @@ struct set *dequeue(struct tableau **t)
   return first;
 }
 
+/*
+ * Adds set to the end of the tableau queue if set is not contradictory.
+ * 
+ * Maintains tableau structure.
+ * 
+ * If tableau is empty, allocates heap memory.
+ */
 void enqueue(struct set *set, struct tableau **t)
 {
-  if (emptied(t))
+  if (contradictory(set))
+  {
+    return;
+  }
+
+  if (emptied(*t))
   {
     *t = calloc(1, sizeof(struct tableau));
     (*t)->S = set;
@@ -399,26 +600,179 @@ void enqueue(struct set *set, struct tableau **t)
   last->rest = new_tableau;
 }
 
+/*
+ * Returns 1 if tableau is closed (all branches closed), 0 otherwise.
+ */
 int closed(struct tableau *t)
 {
-  int hasUnclosedBranch = 0;
+  int has_unclosed_branch = 0;
   while (!emptied(t))
   {
     if (!contradictory(t->S))
     {
-      hasUnclosedBranch = 1;
+      has_unclosed_branch = 1;
     }
     t = t->rest;
   }
-  return !hasUnclosedBranch;
+  return !has_unclosed_branch;
 }
 
-void complete(struct tableau *t)
+/*
+ * Negates the given formula by adding '-' at the beggining of formula.
+ * 
+ * Returns negated version of formula.
+ */
+char *negate(char *formula)
+{
+  char *negated = calloc(FORMULA_SIZE, sizeof(char));
+  strcpy(negated, "-");
+  strcat(negated, formula);
+  //free(formula);
+  return negated;
+}
+
+enum tableauType
+{
+  unsatisfiable,
+  satisfiable
+};
+
+int singleTermFormula(char *formula)
+{
+  if (strcmp(formula, "p") == 0 ||
+      strcmp(formula, "q") == 0 ||
+      strcmp(formula, "r") == 0 ||
+      strcmp(formula, "-p") == 0 ||
+      strcmp(formula, "-q") == 0 ||
+      strcmp(formula, "-r") == 0)
+  {
+    return 1;
+  }
+  return 0;
+}
+
+int complete(struct tableau *t)
 {
   while (!emptied(t))
   {
     struct set *s = dequeue(&t);
+    if (s == NULL)
+    {
+      return 0;
+    }
+    if (expanded(s) && !contradictory(s))
+    {
+      return satisfiable;
+    }
+
+    char *formula = dequeueFormula(&s);
+    if (formula == NULL)
+    {
+      continue;
+    }
+
+    if (singleTermFormula(formula))
+    {
+      // Enqueue set back in tableau
+      enqueueFormula(formula, &s);
+      enqueue(s, &t);
+      continue;
+    }
+
+    // TODO: ADD CASE for -(p^q)
+
+    int alpha_result = alpha(formula);
+    if (alpha_result != notAlpha) // Alpha Expansion Case
+    {
+      if (alpha_result == alphaNegatedOr)
+      {
+        char *left_formula = getLeftPartFormula(formula + 1);
+        char *right_formula = getRightPartFormula(formula + 1);
+        left_formula = negate(left_formula);
+        right_formula = negate(right_formula);
+
+        enqueueFormula(left_formula, &s);
+        enqueueFormula(right_formula, &s);
+
+        enqueue(s, &t);
+      }
+      else if (alpha_result == alphaNegatedImplies)
+      {
+        char *left_formula = getLeftPartFormula(formula + 1);
+        char *right_formula = getRightPartFormula(formula + 1);
+        right_formula = negate(right_formula);
+
+        enqueueFormula(left_formula, &s);
+        enqueueFormula(right_formula, &s);
+
+        enqueue(s, &t);
+      }
+      else if (alpha_result == alphaAnd)
+      {
+        char *left_formula = getLeftPartFormula(formula);
+        char *right_formula = getRightPartFormula(formula);
+
+        enqueueFormula(left_formula, &s);
+        enqueueFormula(right_formula, &s);
+
+        enqueue(s, &t);
+      }
+      else if (alpha_result == alphaDoubleNegation)
+      {
+        enqueueFormula(formula + 2, &s);
+        enqueue(s, &t);
+      }
+    }
+    else // Beta Expansion Case
+    {
+      int beta_result = beta(formula);
+      if (beta_result == betaOr)
+      {
+        char *left_formula = getLeftPartFormula(formula);
+        char *right_formula = getRightPartFormula(formula);
+
+        struct set *s_copy = deepCopy(s);
+        enqueueFormula(left_formula, &s);
+        enqueueFormula(right_formula, &s_copy);
+
+        enqueue(s, &t);
+        enqueue(s_copy, &t);
+      }
+      else if (beta_result == betaImplies)
+      {
+        char *left_formula = getLeftPartFormula(formula);
+        char *right_formula = getRightPartFormula(formula);
+        left_formula = negate(left_formula);
+
+        struct set *s_copy = deepCopy(s);
+        enqueueFormula(left_formula, &s);
+        enqueueFormula(right_formula, &s_copy);
+
+        enqueue(s, &t);
+        enqueue(s_copy, &t);
+      }
+      else if (beta_result == betaNegatedAnd)
+      {
+        char *left_formula = getLeftPartFormula(formula + 1);
+        char *right_formula = getRightPartFormula(formula + 1);
+        left_formula = negate(left_formula);
+        right_formula = negate(right_formula);
+
+        struct set *s_copy = deepCopy(s);
+        enqueueFormula(left_formula, &s);
+        enqueueFormula(right_formula, &s_copy);
+
+        enqueue(s, &t);
+        enqueue(s_copy, &t);
+      }
+      else
+      {
+        printf("\nUnable to expand %s in %s, returning...", formula, g_current_formula);
+        return 2;
+      }
+    }
   }
+  return unsatisfiable;
 }
 
 int main()
@@ -445,6 +799,7 @@ int main()
   {
     if (fscanf(fp, "%s", str))
     {
+      g_current_formula = str;
       int parseResult = parse(str);
       switch (parseResult)
       {
@@ -479,8 +834,8 @@ int main()
         t->S = S;
 
         /* Completes the tableau and checks if it is closed */
-        complete(t);
-        if (closed(t))
+        int tableau_result = complete(t);
+        if (tableau_result != satisfiable)
           fprintf(fpout, "%s is not satisfiable.\n", str);
         else
           fprintf(fpout, "%s is satisfiable.\n", str);
